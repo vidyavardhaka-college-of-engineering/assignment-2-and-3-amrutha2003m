@@ -1,51 +1,108 @@
 #include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
+#include <stdbool.h>
 
-#define MAX_N 20
+#define TABLE_SIZE 10
 
-int preferences[MAX_N][MAX_N];
-int dp[1 << MAX_N];
-int n;
+typedef enum { EMPTY, OCCUPIED, TOMBSTONE } CellStatus;
 
-// Function to count ways to assign topics to students
-int countWays(int mask) {
-    if (dp[mask] != -1) {
-        return dp[mask];
+typedef struct {
+    int key;
+    CellStatus status;
+} HashTableEntry;
+
+typedef struct {
+    HashTableEntry table[TABLE_SIZE];
+} HashTable;
+
+int hash(int key) {
+    return key % TABLE_SIZE;
+}
+
+void initTable(HashTable *ht) {
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        ht->table[i].status = EMPTY;
+    }
+}
+
+void insert(HashTable *ht, int key) {
+    int index = hash(key);
+    int firstTombstone = -1;
+
+    while (ht->table[index].status == OCCUPIED) {
+        if (ht->table[index].status == TOMBSTONE && firstTombstone == -1) {
+            firstTombstone = index;
+        }
+        index = (index + 1) % TABLE_SIZE;
     }
 
-    int student = __builtin_popcount(mask); // Number of set bits (students assigned so far)
-    if (student == n) {
-        return 1;
+    if (firstTombstone != -1) {
+        index = firstTombstone;
     }
 
-    int ways = 0;
-    for (int topic = 0; topic < n; ++topic) {
-        if ((mask & (1 << topic)) == 0 && preferences[student][topic] == 1) {
-            ways += countWays(mask | (1 << topic));
+    ht->table[index].key = key;
+    ht->table[index].status = OCCUPIED;
+}
+
+bool search(HashTable *ht, int key) {
+    int index = hash(key);
+
+    while (ht->table[index].status != EMPTY) {
+        if (ht->table[index].status == OCCUPIED && ht->table[index].key == key) {
+            return true;
+        }
+        index = (index + 1) % TABLE_SIZE;
+    }
+
+    return false;
+}
+
+void delete(HashTable *ht, int key) {
+    int index = hash(key);
+
+    while (ht->table[index].status != EMPTY) {
+        if (ht->table[index].status == OCCUPIED && ht->table[index].key == key) {
+            ht->table[index].status = TOMBSTONE;
+            return;
+        }
+        index = (index + 1) % TABLE_SIZE;
+    }
+}
+
+void printTable(HashTable *ht) {
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        printf("Index %d: ", i);
+        if (ht->table[i].status == EMPTY) {
+            printf("EMPTY\n");
+        } else if (ht->table[i].status == OCCUPIED) {
+            printf("Key %d\n", ht->table[i].key);
+        } else {
+            printf("TOMBSTONE\n");
         }
     }
-
-    dp[mask] = ways;
-    return dp[mask];
 }
 
 int main() {
-    int t;
-    scanf("%d", &t);
+    HashTable ht;
+    initTable(&ht);
 
-    while (t--) {
-        scanf("%d", &n);
-        for (int i = 0; i < n; ++i) {
-            for (int j = 0; j < n; ++j) {
-                scanf("%d", &preferences[i][j]);
-            }
-        }
+    insert(&ht, 1);
+    insert(&ht, 2);
+    insert(&ht, 3);
+    insert(&ht, 12);  // Collision with 2
+    insert(&ht, 22);  // Collision with 2 and 12
 
-        memset(dp, -1, sizeof(dp));
-        int result = countWays(0);
+    printTable(&ht);
 
-        printf("%d\n", result);
-    }
+    delete(&ht, 2);
+    delete(&ht, 12);
+
+    printf("After deletion:\n");
+    printTable(&ht);
+
+    insert(&ht, 32);  // Should go into the first tombstone slot (index of 2)
+    printf("After insertion of 32:\n");
+    printTable(&ht);
 
     return 0;
 }
